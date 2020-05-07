@@ -228,6 +228,25 @@ provider "aws" {
   # "us-east-1": https://docs.aws.amazon.com/general/latest/gr/r53.html.
   region = "us-east-1"
 }
+
+{{- else if eq .Config.DNSProvider "cloudflare" }}
+module "dns" {
+  source = "../lokomotive-kubernetes/dns/cloudflare"
+
+  providers = {
+    cloudflare = cloudflare.default
+  }
+
+  cluster_name             = "{{ .Config.ClusterName }}"
+  controllers_public_ipv4  = module.packet-{{.Config.ClusterName}}.controllers_public_ipv4
+  controllers_private_ipv4 = module.packet-{{.Config.ClusterName}}.controllers_private_ipv4
+  dns_zone                 = "{{ .Config.DNSZone }}"
+}
+
+provider "cloudflare" {
+  version = "~> 2.0"
+  alias   = "default"
+}
 {{- end }}
 
 provider "ct" {

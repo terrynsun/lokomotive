@@ -30,6 +30,8 @@ const (
 	DNSManual = "manual"
 	// DNSRoute53 represents DNS managed in Route 53.
 	DNSRoute53 = "route53"
+	// DNSCloudflare represents DNS managed in Cloudflare.
+	DNSCloudflare = "cloudflare"
 )
 
 type dnsEntry struct {
@@ -45,6 +47,8 @@ func Validate(p string) error {
 	case DNSManual:
 		return nil
 	case DNSRoute53:
+		return nil
+	case DNSCloudflare:
 		return nil
 	}
 

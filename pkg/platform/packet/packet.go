@@ -69,7 +69,8 @@ type config struct {
 	Tags                     map[string]string `hcl:"tags,optional"`
 	ControllerCount          int               `hcl:"controller_count"`
 	ControllerType           string            `hcl:"controller_type,optional"`
-	DNS                      dns.Config        `hcl:"dns,block"`
+	DNSProvider              string            `hcl:"dns_provider"`
+	DNSZone                  string            `hcl:"dns_zone"`
 	Facility                 string            `hcl:"facility"`
 	ProjectID                string            `hcl:"project_id"`
 	SSHPubKeys               []string          `hcl:"ssh_pubkeys"`
@@ -153,8 +154,7 @@ func (c *config) Apply(ex *terraform.Executor) error {
 
 	c.AssetDir = assetDir
 
-	dnsProvider, err := dns.ParseDNS(&c.DNS)
-	if err != nil {
+	if err := dns.Validate(c.DNSProvider); err != nil {
 		return errors.Wrap(err, "parsing DNS configuration failed")
 	}
 
@@ -162,7 +162,7 @@ func (c *config) Apply(ex *terraform.Executor) error {
 		return err
 	}
 
-	return c.terraformSmartApply(ex, dnsProvider)
+	return c.terraformSmartApply(ex, c.DNSProvider, c.DNSZone)
 }
 
 func (c *config) Destroy(ex *terraform.Executor) error {
@@ -234,7 +234,7 @@ func createTerraformConfigFile(cfg *config, terraformPath string) error {
 }
 
 // terraformSmartApply applies cluster configuration.
-func (c *config) terraformSmartApply(ex *terraform.Executor, dnsProvider dns.DNSProvider) error {
+func (c *config) terraformSmartApply(ex *terraform.Executor, dnsProvider string, dnsZone string) error {
 	// If the provider isn't manual, apply everything in a single step.
 	if dnsProvider != dns.DNSManual {
 		return ex.Apply()
@@ -242,16 +242,29 @@ func (c *config) terraformSmartApply(ex *terraform.Executor, dnsProvider dns.DNS
 
 	arguments := []string{"apply", "-auto-approve"}
 
-	// Get DNS entries (it forces the creation of the controller nodes).
-	arguments = append(arguments, fmt.Sprintf("-target=module.packet-%s.null_resource.dns_entries", c.ClusterName))
-
-	// Create controller
+	// Create controllers. We need the controllers' IP addresses before we can
+	// apply the 'dns' module.
+	arguments = append(arguments, fmt.Sprintf("-target=module.packet-%s.packet_device.controllers", c.ClusterName))
 	if err := ex.Execute(arguments...); err != nil {
-		return errors.Wrap(err, "failed executing Terraform")
+		return errors.Wrap(err, "creating controllers")
 	}
 
-	if err := dns.AskToConfigure(ex, &c.DNS); err != nil {
-		return errors.Wrap(err, "failed to configure DNS entries")
+	// Apply 'dns' module.
+	arguments = append(arguments, "-target=module.dns")
+	if err := ex.Execute(arguments...); err != nil {
+		return errors.Wrap(err, "applying 'dns' module")
+	}
+
+	// Run `terraform refresh`. This is required in order to make the outputs from the previous
+	// apply operations available.
+	// TODO: Likely caused by https://github.com/hashicorp/terraform/issues/23158.
+	if err := ex.Execute("refresh"); err != nil {
+		return errors.Wrap(err, "refreshing")
+	}
+
+	// Prompt user to configure DNS.
+	if err := dns.AskToConfigure(ex, dnsZone); err != nil {
+		return errors.Wrap(err, "prompting for manual DNS configuration")
 	}
 
 	// Finish deployment.

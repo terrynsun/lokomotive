@@ -26,7 +26,7 @@ module "packet-{{.Config.ClusterName}}" {
     packet   = packet.default
   }
 
-  dns_zone    = "{{.Config.DNS.Zone}}"
+  dns_zone    = "{{.Config.DNSZone}}"
 
   ssh_keys  = {{.SSHPublicKeys}}
   asset_dir = "../cluster-assets"
@@ -192,13 +192,21 @@ module "worker-{{ $pool.Name }}" {
 }
 {{ end }}
 
-{{- if .Config.DNS.Provider.Manual }}
-output "dns_entries" {
-  value = module.packet-{{.Config.ClusterName}}.dns_entries
-}
-{{- end }}
+{{- if eq .Config.DNSProvider "manual" }}
+module "dns" {
+  source = "../lokomotive-kubernetes/dns/manual"
 
-{{- if .Config.DNS.Provider.Route53 }}
+  cluster_name             = "{{ .Config.ClusterName }}"
+  controllers_public_ipv4  = module.packet-{{.Config.ClusterName}}.controllers_public_ipv4
+  controllers_private_ipv4 = module.packet-{{.Config.ClusterName}}.controllers_private_ipv4
+  dns_zone                 = "{{ .Config.DNSZone }}"
+}
+
+output "dns_entries" {
+  value = module.dns.entries
+}
+
+{{- else if eq .Config.DNSProvider "route53" }}
 module "dns" {
   source = "../lokomotive-kubernetes/dns/route53"
 
@@ -206,8 +214,10 @@ module "dns" {
     aws = aws.default
   }
 
-  entries = module.packet-{{.Config.ClusterName}}.dns_entries
-  aws_zone_id = "{{.Config.DNS.Provider.Route53.ZoneID}}"
+  cluster_name             = "{{ .Config.ClusterName }}"
+  controllers_public_ipv4  = module.packet-{{.Config.ClusterName}}.controllers_public_ipv4
+  controllers_private_ipv4 = module.packet-{{.Config.ClusterName}}.controllers_private_ipv4
+  dns_zone                 = "{{ .Config.DNSZone }}"
 }
 
 provider "aws" {
@@ -217,9 +227,6 @@ provider "aws" {
   # the AWS Terraform provider needs it and the documentation suggests to use
   # "us-east-1": https://docs.aws.amazon.com/general/latest/gr/r53.html.
   region = "us-east-1"
-  {{- if .Config.DNS.Provider.Route53.AWSCredsPath }}
-  shared_credentials_file = "{{.Config.DNS.Provider.Route53.AWSCredsPath}}"
-  {{- end }}
 }
 {{- end }}
 

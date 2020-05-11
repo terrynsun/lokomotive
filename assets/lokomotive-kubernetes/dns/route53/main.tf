@@ -1,27 +1,49 @@
-variable "entries" {
-  type = list(
-    object({
-      name    = string
-      type    = string
-      ttl     = number
-      records = list(string)
-    })
-  )
-}
-
-variable "aws_zone_id" {
+variable "cluster_name" {
   type        = string
-  description = "AWS Route53 DNS Zone ID (e.g. Z3PAABBCFAKEC0)"
+  description = "Unique cluster name (prepended to dns_zone)"
 }
 
-resource "aws_route53_record" "dns-records" {
-  count = length(var.entries)
+variable "controllers_public_ipv4" {
+  type        = list(string)
+  description = "Public IPv4 addresses of all the controllers in the cluster"
+}
 
-  # Route53 DNS Zone where record should be created
-  zone_id = var.aws_zone_id
+variable "controllers_private_ipv4" {
+  type        = list(string)
+  description = "Private IPv4 addresses of all the controllers in the cluster"
+}
 
-  name    = var.entries[count.index].name
-  type    = var.entries[count.index].type
-  ttl     = var.entries[count.index].ttl
-  records = var.entries[count.index].records
+variable "dns_zone" {
+  type        = string
+  description = "Route 53 zone name (e.g. example.com)"
+}
+
+data "aws_route53_zone" "selected" {
+  name = "${var.dns_zone}."
+}
+
+resource "aws_route53_record" "apiserver_public" {
+  zone_id = data.aws_route53_zone.selected.zone_id
+  name    = format("%s.%s.", var.cluster_name, var.dns_zone)
+  type    = "A"
+  ttl     = 300
+  records = var.controllers_public_ipv4
+}
+
+resource "aws_route53_record" "apiserver_private" {
+  zone_id = data.aws_route53_zone.selected.zone_id
+  name    = format("%s-private.%s.", var.cluster_name, var.dns_zone)
+  type    = "A"
+  ttl     = 300
+  records = var.controllers_private_ipv4
+}
+
+resource "aws_route53_record" "etcd" {
+  count = length(var.controllers_private_ipv4)
+
+  zone_id = data.aws_route53_zone.selected.zone_id
+  name    = format("%s-etcd%d.%s.", var.cluster_name, count.index, var.dns_zone)
+  type    = "A"
+  ttl     = 300
+  records = [var.controllers_private_ipv4[count.index]]
 }

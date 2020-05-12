@@ -79,17 +79,9 @@ cluster "packet" {
 
   project_id = var.packet_project_id
 
-  dns {
-    zone = var.dns_zone
+  dns_provider = "route53"
 
-    provider {
-      route53 {
-        zone_id = var.route53_zone_id
-      }
-    }
-
-    # manual {}
-  }
+  dns_zone = var.dns_zone
 
   ssh_pubkeys = var.ssh_public_keys
 
@@ -185,13 +177,8 @@ node_type = var.custom_default_worker_type
 | `tags`                                | List of tags that will be propagated to master nodes.                                                                                                                         | -               | false    |
 | `controller_count`                    | Number of controller nodes.                                                                                                                                                   | 1               | false    |
 | `controller_type`                     | Packet instance type for controllers.                                                                                                                                         | "baremetal_0"   | false    |
-| `dns`                                 | DNS configuration block.                                                                                                                                                      | -               | true     |
-| `dns.zone`                            | DNS Zone.                                                                                                                                                                     | -               | true     |
-| `dns.provider`                        | DNS Provider configuration block. Route 53 or Manual.                                                                                                                         | -               | true     |
-| `dns.provider.route53`                | Route 53 DNS Configuration.                                                                                                                                                   | -               | false    |
-| `dns.provider.route53.zone_id`        | Route 53 DNS Zone ID.                                                                                                                                                         | -               | true     |
-| `dns.provider.route53.aws_creds_path` | AWS credentials for managing Route 53 DNS.                                                                                                                                    | -               | false    |
-| `dns.provider.manual`                 | Manual DNS configuration.                                                                                                                                                     | -               | false    |
+| `dns_provider`                        | DNS provider to use for the cluster. Valid values: `cloudflare`, `route53`, `manual`.                                                                                         | -               | true     |
+| `dns_zone`                            | A DNS zone to use for the cluster. The following format is used for cluster-related DNS records: `<record>.<cluster_name>.<dns_zone>`                                         | -               | true     |
 | `facility`                            | Packet facility to use for deploying the cluster.                                                                                                                             | -               | false    |
 | `project_id`                          | Packet project ID.                                                                                                                                                            | -               | true     |
 | `ssh_pubkeys`                         | List of SSH public keys for user `core`. Each element must be specified in a valid OpenSSH public key format, as defined in RFC 4253 Section 6.6, e.g. "ssh-rsa AAAAB3N...".  | -               | true     |

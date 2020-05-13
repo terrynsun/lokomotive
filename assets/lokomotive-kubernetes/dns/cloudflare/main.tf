@@ -21,8 +21,6 @@ variable "dns_zone" {
 data "cloudflare_zones" "selected" {
   filter {
     name   = var.dns_zone
-    status = "active"
-    paused = false
   }
 }
 

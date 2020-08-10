@@ -1,15 +1,7 @@
-# Contribution Guidelines
-
-## Contents
-
-- [Setup developer environment](#setup-developer-environment)
-- [Build the code](#build-the-code)
-- [Build with docker](#build-with-docker)
-- [Update assets](#update-assets)
-- [Authoring PRs](#authoring-prs)
-  - [Commit Format](#commit-format)
-- [Updating dependencies](#updating-dependencies)
-- [Testing and linting requirements](#testing-and-linting-requirements)
+---
+title: Contribution Guidelines
+weight: 10
+---
 
 ## Setup developer environment
 

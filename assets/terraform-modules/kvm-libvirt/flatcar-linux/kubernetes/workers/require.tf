@@ -2,25 +2,14 @@
 
 terraform {
   required_version = ">= 0.12.0"
-}
 
-provider "ct" {
-  version = "0.4.0"
-}
-
-provider "local" {
-  version = "1.4.0"
-}
-
-provider "template" {
-  version = "~> 2.1"
-}
-
-provider "tls" {
-  version = "~> 2.0"
-}
-
-provider "libvirt" {
-  version = "~> 0.6.0"
-  uri     = "qemu:///system"
+  required_providers {
+    ct       = "~> 0.5.0"
+    local    = "~> 1.2"
+    null     = "~> 2.1"
+    template = "~> 2.1"
+    tls      = "~> 2.0"
+    libvirt  = "~> 0.6.0"
+    random   = "~> 2.2"
+  }
 }

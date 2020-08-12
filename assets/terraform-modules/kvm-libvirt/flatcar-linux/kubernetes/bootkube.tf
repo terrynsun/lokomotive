@@ -18,6 +18,11 @@ module "bootkube" {
   enable_reporting      = var.enable_reporting
   enable_aggregation    = var.enable_aggregation
 
+  # Disable the self hosted kubelet.
+  disable_self_hosted_kubelet = var.disable_self_hosted_kubelet
+  # Extra flags to API server.
+  kube_apiserver_extra_flags = var.kube_apiserver_extra_flags
+
   certs_validity_period_hours = var.certs_validity_period_hours
 }
 

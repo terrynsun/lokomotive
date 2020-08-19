@@ -42,6 +42,11 @@ type VolumeSnapshotLocation struct {
 	APITimeout    string `hcl:"api_timeout,optional"`
 }
 
+// ChartValuesTemplate returns the chart values template.
+func (c *Configuration) ChartValuesTemplate() string {
+	return chartValuesTmpl
+}
+
 // Validate validates azure specific parts in the configuration
 func (c *Configuration) Validate() hcl.Diagnostics {
 	var diagnostics hcl.Diagnostics

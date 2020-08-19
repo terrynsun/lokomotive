@@ -56,6 +56,7 @@ type Metrics struct {
 
 // Provider requires implementing config validation function for each provider
 type provider interface {
+	ChartValuesTemplate() string
 	Validate() hcl.Diagnostics
 }
 
@@ -71,48 +72,6 @@ func newComponent() *component {
 		},
 	}
 }
-
-const chartValuesTmpl = `
-configuration:
-  provider: {{ .Provider }}
-  backupStorageLocation:
-    name: {{ .Provider }}
-    bucket: {{ .Azure.BackupStorageLocation.Bucket }}
-    config:
-      resourceGroup: {{ .Azure.BackupStorageLocation.ResourceGroup }}
-      storageAccount: {{ .Azure.BackupStorageLocation.StorageAccount }}
-  volumeSnapshotLocation:
-    name: {{ .Provider }}
-    config:
-      {{- if .Azure.VolumeSnapshotLocation.ResourceGroup }}
-      resourceGroup: {{ .Azure.VolumeSnapshotLocation.ResourceGroup }}
-      {{- end }}
-      apitimeout: {{ .Azure.VolumeSnapshotLocation.APITimeout }}
-credentials:
-  secretContents:
-    cloud: |
-      AZURE_SUBSCRIPTION_ID: "{{ .Azure.SubscriptionID }}"
-      AZURE_TENANT_ID: "{{ .Azure.TenantID }}"
-      AZURE_CLIENT_ID: "{{ .Azure.ClientID }}"
-      AZURE_CLIENT_SECRET: "{{ .Azure.ClientSecret }}"
-      AZURE_RESOURCE_GROUP: "{{ .Azure.ResourceGroup }}"
-metrics:
-  enabled: {{ .Metrics.Enabled }}
-  serviceMonitor:
-    enabled: {{ .Metrics.ServiceMonitor }}
-    additionalLabels:
-      release: prometheus-operator
-initContainers:
-- image: velero/velero-plugin-for-microsoft-azure:v1.0.0
-  imagePullPolicy: IfNotPresent
-  name: velero-plugin-for-azure
-  resources: {}
-  terminationMessagePath: /dev/termination-log
-  terminationMessagePolicy: File
-  volumeMounts:
-  - mountPath: /target
-    name: plugins
-`
 
 // LoadConfig decodes given HCL and validates the configuration.
 //
@@ -154,7 +113,12 @@ func (c *component) RenderManifests() (map[string]string, error) {
 		return nil, fmt.Errorf("retrieving chart from assets: %w", err)
 	}
 
-	values, err := template.Render(chartValuesTmpl, c)
+	p, err := c.getProvider()
+	if err != nil {
+		return nil, err
+	}
+
+	values, err := template.Render(p.ChartValuesTemplate(), c)
 	if err != nil {
 		return nil, fmt.Errorf("rendering chart values template: %w", err)
 	}

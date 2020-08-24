@@ -16,7 +16,7 @@ package azure
 
 const chartValuesTmpl = `
 configuration:
-  provider: {{ .Provider }}
+  provider: azure
   backupStorageLocation:
     name: {{ .Provider }}
     provider: velero.io/azure
@@ -25,7 +25,10 @@ configuration:
       resourceGroup: {{ .Azure.BackupStorageLocation.ResourceGroup }}
       storageAccount: {{ .Azure.BackupStorageLocation.StorageAccount }}
   volumeSnapshotLocation:
-    name: {{ .Provider }}
+    {{- if .Azure.VolumeSnapshotLocation.Name }}
+    name: {{ .Azure.VolumeSnapshotLocation.Name }}
+    {{- end }}
+    provider: velero.io/azure
     config:
       {{- if .Azure.VolumeSnapshotLocation.ResourceGroup }}
       resourceGroup: {{ .Azure.VolumeSnapshotLocation.ResourceGroup }}

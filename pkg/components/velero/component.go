@@ -25,6 +25,7 @@ import (
 	"github.com/kinvolk/lokomotive/pkg/components"
 	"github.com/kinvolk/lokomotive/pkg/components/util"
 	"github.com/kinvolk/lokomotive/pkg/components/velero/azure"
+	"github.com/kinvolk/lokomotive/pkg/components/velero/openebs"
 	"github.com/kinvolk/lokomotive/pkg/k8sutil"
 )
 
@@ -37,8 +38,7 @@ func init() {
 
 // component represents component configuration data
 type component struct {
-	// Once we support more than one provider, this field should not be optional anymore
-	Provider string `hcl:"provider,optional"`
+	Provider string `hcl:"provider"`
 	// Namespace where velero resources should be installed. Defaults to 'velero'.
 	Namespace string `hcl:"namespace,optional"`
 	// Metrics specific configuration
@@ -46,6 +46,8 @@ type component struct {
 
 	// Azure specific parameters
 	Azure *azure.Configuration `hcl:"azure,block"`
+	// OpenEBS specific parameters.
+	OpenEBS *openebs.Configuration `hcl:"openebs,block"`
 }
 
 // Metrics represents prometheus specific parameters
@@ -56,6 +58,7 @@ type Metrics struct {
 
 // Provider requires implementing config validation function for each provider
 type provider interface {
+	IndentCredentials()
 	ChartValuesTemplate() string
 	Validate() hcl.Diagnostics
 }
@@ -64,12 +67,11 @@ type provider interface {
 func newComponent() *component {
 	return &component{
 		Namespace: "velero",
-		// Once we have more than one provider supported, we should remove the default value
-		Provider: "azure",
 		Metrics: &Metrics{
 			Enabled:        false,
 			ServiceMonitor: false,
 		},
+		OpenEBS: openebs.NewConfiguration(),
 	}
 }
 
@@ -117,6 +119,8 @@ func (c *component) RenderManifests() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Indent credentials
+	p.IndentCredentials()
 
 	values, err := template.Render(p.ChartValuesTemplate(), c)
 	if err != nil {
@@ -134,12 +138,12 @@ func (c *component) RenderManifests() (map[string]string, error) {
 // validate validates component configuration
 func (c *component) validate() hcl.Diagnostics {
 	diagnostics := hcl.Diagnostics{}
+	// Supported providers.
+	supportedProviders := c.getSupportedProviders()
 
 	// Select provider and validate it's configuration
 	p, err := c.getProvider()
 	if err != nil {
-		// Slice can't be constant, so just use a variable
-		supportedProviders := []string{"azure"}
 		return append(diagnostics, &hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  fmt.Sprintf("provider must be one of: '%s'", strings.Join(supportedProviders[:], "', '")),
@@ -150,11 +154,18 @@ func (c *component) validate() hcl.Diagnostics {
 	return append(diagnostics, p.Validate()...)
 }
 
+// getSupportedProviders returns a list of supported providers.
+func (c *component) getSupportedProviders() []string {
+	return []string{"azure", "openebs"}
+}
+
 // getProvider returns correct provider interface based on component configuration
 func (c *component) getProvider() (provider, error) {
 	switch c.Provider {
 	case "azure":
 		return c.Azure, nil
+	case "openebs":
+		return c.OpenEBS, nil
 	default:
 		return nil, fmt.Errorf("unsupported provider '%s'", c.Provider)
 	}

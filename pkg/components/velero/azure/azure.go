@@ -50,6 +50,10 @@ func (c *Configuration) ChartValuesTemplate() string {
 	return chartValuesTmpl
 }
 
+// IndentCredentials indents the provided credentials.
+func (c *Configuration) IndentCredentials() {
+}
+
 // Validate validates azure specific parts in the configuration
 func (c *Configuration) Validate() hcl.Diagnostics {
 	var diagnostics hcl.Diagnostics

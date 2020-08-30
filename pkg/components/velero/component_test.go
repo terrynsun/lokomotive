@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package velero
+package velero //nolint:testpackage
 
 import (
 	"testing"
@@ -26,15 +26,17 @@ func TestEmptyConfig(t *testing.T) {
 	c := newComponent()
 	emptyConfig := hcl.EmptyBody()
 	evalContext := hcl.EvalContext{}
+
 	diagnostics := c.LoadConfig(&emptyConfig, &evalContext)
 	if !diagnostics.HasErrors() {
 		t.Errorf("Empty config should return error")
 	}
 }
 
-func TestRenderManifestAzure(t *testing.T) {
-	configHCL := `
+func TestRenderValidManifests(t *testing.T) { //nolint:funlen
+	configHCLAzure := `
 component "velero" {
+  provider = "azure"
   azure {
     subscription_id  = "foo"
     tenant_id        = "foo"
@@ -50,24 +52,71 @@ component "velero" {
   }
 }
 `
+	configHCLOpenEBS := `
+component "velero" {
+  provider = "openebs"
+  openebs {
+    credentials  = <<EOF
+[default]
+access_key = "access_key"
+secret_key = "secret_key"
+EOF
 
-	component := newComponent()
+    volume_snapshot_location {
+      bucket           = "test_bucket"
+      provider         = "aws"
+      region           = "eu-west-1"
+    }
 
-	body, diagnostics := util.GetComponentBody(configHCL, name)
-	if diagnostics != nil {
-		t.Fatalf("Error getting component body: %v", diagnostics)
-	}
+    backup_storage_location {
+      bucket           = "test_bucket"
+      provider         = "aws"
+      region           = "eu-west-1"
+    }
+  }
+}
+`
+	configHCLRestic := `
+component "velero" {
+  provider = "restic"
+  restic {
+    credentials  = <<EOF
+[default]
+access_key = "access_key"
+secret_key = "secret_key"
+EOF
 
-	diagnostics = component.LoadConfig(body, &hcl.EvalContext{})
-	if diagnostics.HasErrors() {
-		t.Fatalf("Valid config should not return error, got: %s", diagnostics)
-	}
+    backup_storage_location {
+      bucket           = "test_bucket"
+      provider         = "aws"
+    }
+  }
+}
+`
 
-	m, err := component.RenderManifests()
-	if err != nil {
-		t.Fatalf("Rendering manifests with valid config should succeed, got: %s", err)
-	}
-	if len(m) <= 0 {
-		t.Fatalf("Rendered manifests shouldn't be empty")
+	configHCLs := []string{configHCLAzure, configHCLOpenEBS, configHCLRestic}
+	for _, configHCL := range configHCLs {
+		component := newComponent()
+
+		body, diagnostics := util.GetComponentBody(configHCL, name)
+		if diagnostics != nil {
+			t.Fatalf("Error getting component body: %v", diagnostics)
+		}
+
+		diagnostics = component.LoadConfig(body, &hcl.EvalContext{})
+		if diagnostics.HasErrors() {
+			t.Fatalf("Valid config for provider %q should not return error, got: %s",
+				component.Provider, diagnostics)
+		}
+
+		m, err := component.RenderManifests()
+		if err != nil {
+			t.Fatalf("Rendering manifests with valid config for provider %q should succeed,got: %s",
+				component.Provider, err)
+		}
+
+		if len(m) == 0 {
+			t.Fatalf("Rendered manifests shouldn't be empty")
+		}
 	}
 }
